@@ -33,7 +33,14 @@ void Server::start() {
   // acceptChannel_->setEvents(EPOLLIN | EPOLLET | EPOLLONESHOT);
   acceptChannel_->setEvents(EPOLLIN | EPOLLET);//设置监听事件和阻塞方式
   acceptChannel_->setReadHandler(bind(&Server::handNewConn, this));//设置回调函数，this指针绑定这个服务器的,这样这个函数就可以当作一个全局函数使用了。
+  
+  //void handThisConn() { loop_->updatePoller(acceptChannel_); }这个函数长这样,在server里面这么用,this指针已经绑定loop,最终channel调用这个函数
+  //最终其作用相当于channel通过调用connHandler,使得server调用server里面的EventLoop来更新Channel,这样新加的Channel就能被update了
+  //问题:acceptChannel可以直接通过loop进行更新,为什么要通过这种方式来弄搞呢？
+  //可能回答,acceptChannel中的_loop只在初始的时候使用,因为channel跟Server联系更紧密,因此在Channel中直接调用loop设计上不够好。
   acceptChannel_->setConnHandler(bind(&Server::handThisConn, this));//设置回调函数,this指针绑定这个服务器的。
+    
+    
   loop_->addToPoller(acceptChannel_, 0);//EventPoll注册监听的Chenel，问题
   started_ = true;//开始标志设置
 }
