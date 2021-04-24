@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 #endif
   EventLoop mainLoop;
   Server myHTTPServer(&mainLoop, threadNum, port);
-  myHTTPServer.start();
-  mainLoop.loop();
+  myHTTPServer.start();//只是设置了用于监听的fd,并没有开始进行mainLoop
+  mainLoop.loop();//这时才开始进行loop
   return 0;
 }
