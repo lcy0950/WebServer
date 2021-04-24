@@ -11,38 +11,44 @@
 Server::Server(EventLoop *loop, int threadNum, int port)
     : loop_(loop),
       threadNum_(threadNum),
-      eventLoopThreadPool_(new EventLoopThreadPool(loop_, threadNum)),
+      eventLoopThreadPool_(new EventLoopThreadPool(loop_, threadNum)),//问题,为什么这个线程池需要 EventLoop的指针?
       started_(false),
-      acceptChannel_(new Channel(loop_)),
+        
+      //这里的acceptChannel是一个指针
+      acceptChannel_(new Channel(loop_)),//问题,为什么这个Chennel需要EventLoop指针?start函数里给出了答案,用于向这个EventLoop进行注册，注册后其被监听
+                                         //问题,loop_仅仅是用于被Channel注册嘛？
       port_(port),
       listenFd_(socket_bind_listen(port_)) {
-  acceptChannel_->setFd(listenFd_);
-  handle_for_sigpipe();
-  if (setSocketNonBlocking(listenFd_) < 0) {
+  acceptChannel_->setFd(listenFd_);//设置Fd的属性
+  handle_for_sigpipe();//这个函数起什么作用?
+  if (setSocketNonBlocking(listenFd_) < 0) {//为什么要设置listenFd为非阻塞的?
     perror("set socket non block failed");
     abort();
   }
 }
 
+//可见start函数最重要的部分就是将监听函数放入
 void Server::start() {
-  eventLoopThreadPool_->start();
+  eventLoopThreadPool_->start();//线程池开始进行支持
   // acceptChannel_->setEvents(EPOLLIN | EPOLLET | EPOLLONESHOT);
-  acceptChannel_->setEvents(EPOLLIN | EPOLLET);
-  acceptChannel_->setReadHandler(bind(&Server::handNewConn, this));
-  acceptChannel_->setConnHandler(bind(&Server::handThisConn, this));
-  loop_->addToPoller(acceptChannel_, 0);
-  started_ = true;
+  acceptChannel_->setEvents(EPOLLIN | EPOLLET);//设置监听事件和阻塞方式
+  acceptChannel_->setReadHandler(bind(&Server::handNewConn, this));//设置回调函数，this指针绑定这个服务器的,这样这个函数就可以当作一个全局函数使用了。
+  acceptChannel_->setConnHandler(bind(&Server::handThisConn, this));//设置回调函数,this指针绑定这个服务器的。
+  loop_->addToPoller(acceptChannel_, 0);//EventPoll注册监听的Chenel，问题
+  started_ = true;//开始标志设置
 }
 
+//用于处理新的连接
 void Server::handNewConn() {
   struct sockaddr_in client_addr;
   memset(&client_addr, 0, sizeof(struct sockaddr_in));
   socklen_t client_addr_len = sizeof(client_addr);
-  int accept_fd = 0;
-  while ((accept_fd = accept(listenFd_, (struct sockaddr *)&client_addr,
+  int accept_fd = 0;//客户连接的fd
+  //处理客户的链接
+  while ((accept_fd = accept(listenFd_, (struct sockaddr *)&client_addr,//等有通知了,才执行到这里,问题?这里的listenFd_是阻塞还是非阻塞,为什么这样设置。
                              &client_addr_len)) > 0) {
-    EventLoop *loop = eventLoopThreadPool_->getNextLoop();
-    LOG << "New connection from " << inet_ntoa(client_addr.sin_addr) << ":"
+    EventLoop *loop = eventLoopThreadPool_->getNextLoop();//问题,这个getNextLoop是干什么用的,这里为什么又多了一个loop?
+    LOG << "New connection from " << inet_ntoa(client_addr.sin_addr) << ":"//记录客户信息
         << ntohs(client_addr.sin_port);
     // cout << "new connection" << endl;
     // cout << inet_ntoa(client_addr.sin_addr) << endl;
@@ -56,22 +62,22 @@ void Server::handNewConn() {
     */
     // 限制服务器的最大并发连接数
     if (accept_fd >= MAXFDS) {
-      close(accept_fd);
+      close(accept_fd);//为何这里直接close,close接口的语义作用是什么?
       continue;
     }
     // 设为非阻塞模式
-    if (setSocketNonBlocking(accept_fd) < 0) {
+    if (setSocketNonBlocking(accept_fd) < 0) {//问题?为什么与客户通信的fd要设置为非阻塞模式.
       LOG << "Set non block failed!";
       // perror("Set non block failed!");
       return;
     }
 
-    setSocketNodelay(accept_fd);
+    setSocketNodelay(accept_fd);//问题,Nodelay和NoLinger参数都是什么含义,用于什么场景?为什么?
     // setSocketNoLinger(accept_fd);
 
-    shared_ptr<HttpData> req_info(new HttpData(loop, accept_fd));
-    req_info->getChannel()->setHolder(req_info);
-    loop->queueInLoop(std::bind(&HttpData::newEvent, req_info));
+    shared_ptr<HttpData> req_info(new HttpData(loop, accept_fd));//HttpData这个类是用于什么?为何要传入loop和accept_fd,猜想是用于处理http数据的
+    req_info->getChannel()->setHolder(req_info);//这里的getChannel是什么语义?setHolder是什么语义
+    loop->queueInLoop(std::bind(&HttpData::newEvent, req_info));//queueInLoop是什么作用.
   }
-  acceptChannel_->setEvents(EPOLLIN | EPOLLET);
+  acceptChannel_->setEvents(EPOLLIN | EPOLLET);//继续监听新的客户。
 }
