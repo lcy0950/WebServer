@@ -37,7 +37,9 @@ void Server::start() {
   //void handThisConn() { loop_->updatePoller(acceptChannel_); }这个函数长这样,在server里面这么用,this指针已经绑定loop,最终channel调用这个函数
   //最终其作用相当于channel通过调用connHandler,使得server调用server里面的EventLoop来更新Channel,这样新加的Channel就能被update了
   //问题:acceptChannel可以直接通过loop进行更新,为什么要通过这种方式来弄搞呢？
-  //可能回答,acceptChannel中的_loop只在初始的时候使用,因为channel跟Server联系更紧密,因此在Channel中直接调用loop设计上不够好。
+  //回答,分两个方面来回答,首先hand...是用于回调的,因此其不能有参数,其需要进行一下bind
+  //其次,回调函数的调用应该由不同的server进行负责,Channel只做好Channel的事情就好了,不需要越俎代庖的将Server的活
+  //包揽了,如果换一个Server,通过现有的设置,Channel可以继续重用,而如果像问题里面的设计,则这个Channel就没办法重用了
   acceptChannel_->setConnHandler(bind(&Server::handThisConn, this));//设置回调函数,this指针绑定这个服务器的。
     
     
