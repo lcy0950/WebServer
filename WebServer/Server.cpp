@@ -83,7 +83,10 @@ void Server::handNewConn() {
 
     setSocketNodelay(accept_fd);//问题,Nodelay和NoLinger参数都是什么含义,用于什么场景?为什么?
     // setSocketNoLinger(accept_fd);
-
+    
+      
+    //可见,得到这个accept_fd之后,将其交给新的一个loop去搞了
+    //这个新loop和HttpData是关键内容
     shared_ptr<HttpData> req_info(new HttpData(loop, accept_fd));//HttpData这个类是用于什么?为何要传入loop和accept_fd,猜想是用于处理http数据的
     req_info->getChannel()->setHolder(req_info);//这里的getChannel是什么语义?setHolder是什么语义
     loop->queueInLoop(std::bind(&HttpData::newEvent, req_info));//queueInLoop是什么作用.
