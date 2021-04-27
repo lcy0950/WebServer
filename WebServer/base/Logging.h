@@ -7,8 +7,10 @@
 #include <string>
 #include "LogStream.h"
 
+//本文件总结：
+//Logger和impl_的简单实现,注意区分两个...Name即可。
 
-class AsyncLogging;//
+class AsyncLogging;
 
 class Logger {
  public:
