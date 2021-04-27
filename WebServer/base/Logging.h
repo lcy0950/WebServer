@@ -27,10 +27,10 @@ class Logger {
 
     LogStream stream_;
     int line_;
-    std::string basename_;
+    std::string basename_;//这里的basename是用来说明代码在什么地方
   };
   Impl impl_;
-  static std::string logFileName_;
+  static std::string logFileName_;//这里的file是用来记录Log文档在那个地方
 };
 
 #define LOG Logger(__FILE__, __LINE__).stream()
